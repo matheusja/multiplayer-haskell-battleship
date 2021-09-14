@@ -1,3 +1,4 @@
+import qualified Control.Exception as E
 
 import qualified System.IO as I_O
 import qualified System.Console.ANSI as Console
@@ -6,14 +7,14 @@ import qualified Battleship
 import qualified Sea
 import qualified Game
 
-main = do
-  setupTerminal
+main = E.bracket_ start exit game
+
+game = do
   gameState <- Game.setup Sea.standardBounds Battleship.standardFleet
   gameResult <- Game.run gameState
   Game.after gameResult
-  exit
-  
-setupTerminal = do
+
+start = do
   I_O.hSetBuffering I_O.stdin I_O.NoBuffering
   I_O.hSetEcho      I_O.stdin False
   Console.hideCursor

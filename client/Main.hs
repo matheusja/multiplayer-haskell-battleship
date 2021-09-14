@@ -1,18 +1,17 @@
-{-# LANGUAGE OverloadedStrings #-}
 -- Echo client program
 module Main (main) where
 
 import qualified Control.Exception as E
-import qualified Data.ByteString.Char8 as C
 import Network.Socket
 import qualified Network.Socket.ByteString as NS
+import qualified Conversions as C
+
 
 main :: IO ()
 main = runTCPClient "127.0.0.1" "3000" $ \s -> do
-    NS.sendAll s "Hello, world!"
+    NS.sendAll s $ C.string_to_utf8 "Lobby"
     msg <- NS.recv s 1024
-    putStr "Received: "
-    C.putStrLn msg
+    putStrLn $ "Received: " ++ (C.string_from_utf8 msg)
 
 -- from the "network-run" package.
 runTCPClient :: HostName -> ServiceName -> (Socket -> IO a) -> IO a
