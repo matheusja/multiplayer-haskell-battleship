@@ -16,8 +16,8 @@ ignoreSecond f a _ = f a
 
 main :: IO ()
 main = do
-  aloc <- Lobbying.alocator 
-  runTCPServer Nothing "3000" (ignoreSecond $ Lobbying.lobby_start aloc)
+  (return_code, aloc) <- Lobbying.alocator 
+  runTCPServer Nothing "3000" (ignoreSecond $ Lobbying.lobby_start return_code aloc)
 
 
 -- from the "network-run" package.

@@ -1,8 +1,8 @@
-module Code(Type(), code_text, encode, decode, unwrap, alocator) where
+module Code where
 import Data.ByteString
 import Conversions
 import Data.IORef
-newtype Type = Type Word;
+newtype Type = Type Word deriving (Eq, Ord);
 
 
 code_text :: Type -> String
@@ -16,8 +16,3 @@ decode = Type . read . string_from_utf8
 
 unwrap :: Type -> Word
 unwrap(Type c) = c
-
-alocator :: IO (IO Code.Type)
-alocator = do
-  counter_now <- newIORef 0;
-  return $ Code.Type <$> atomicModifyIORef' counter_now (\x -> (x+1,x))
