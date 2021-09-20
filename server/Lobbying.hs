@@ -28,12 +28,13 @@ alocator = do
         Just (first_element, remainer_elems) -> do
           ((remainer_elems, next_value), first_element)
 
-register :: IO(Code.Type -> Socket -> IO(), Code.Type -> IO (Maybe Socket))
+register :: IO(Code.Type -> Socket -> IO(), Code.Type -> IO (Maybe Socket), IO ())
 register = do
   register_state <- newIORef M.empty
   let insert_value_in_register code socket = atomicModifyIORef' register_state $ \dict -> (M.insert code socket dict, ())
   let take_value_from_register = atomicModifyIORef' register_state . take_from
-  return (insert_value_in_register, take_value_from_register)
+  let clean_up = readIORef register_state >>= mapM_ (`gracefulClose` 5000)
+  return (insert_value_in_register, take_value_from_register, clean_up)
   where
     take_from key dict =
       let
