@@ -5,14 +5,22 @@ import qualified Control.Exception as E
 import Network.Socket
 import qualified Network.Socket.ByteString as NS
 import qualified Conversions as C
+import System.Environment
+import Data.Maybe
+import Data.List
 
 
 main :: IO ()
 main = runTCPClient "127.0.0.1" "3000" $ \s -> do
-    NS.sendAll s $ C.string_to_utf8 "Lobby"
+    args <- getArgs
+    let message = maybe "lobby" (("join " ++ ) . fst) $ uncons args
+    NS.sendAll s $ C.string_to_utf8 message
+    msg <- NS.recv s 1024
+    putStrLn $ "Received: " ++ C.string_from_utf8 msg
     _ <- getLine -- evitar sair
     msg <- NS.recv s 1024
-    putStrLn $ "Received: " ++ (C.string_from_utf8 msg) 
+    putStrLn $ "Received: " ++ C.string_from_utf8 msg
+    _ <- getLine -- evitar sair
     return ()
 
 -- from the "network-run" package.

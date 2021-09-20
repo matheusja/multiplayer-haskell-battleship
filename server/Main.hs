@@ -16,12 +16,13 @@ ignoreSecond f a _ = f a
 
 main :: IO ()
 main = do
-  (return_code, aloc) <- Lobbying.alocator 
-  runTCPServer Nothing "3000" (ignoreSecond $ Lobbying.lobby_start return_code aloc)
+  (return_code, aloc) <- Lobbying.alocator
+  (register_socket, take_socket) <- Lobbying.register
+  runTCPServer Nothing "3000" $ Lobbying.lobby_start return_code aloc register_socket take_socket
 
 
 -- from the "network-run" package.
-runTCPServer :: Maybe HostName -> ServiceName -> (Socket -> IORef Bool -> IO a) -> IO a
+runTCPServer :: Maybe HostName -> ServiceName -> (Socket -> IORef [Socket] -> IO a) -> IO a
 runTCPServer mhost port server = withSocketsDo $ do
     addr <- resolve
     E.bracket (open addr) close loop
@@ -41,7 +42,7 @@ runTCPServer mhost port server = withSocketsDo $ do
         return sock
     loop sock = forever $ do
         (conn, _peer) <- accept sock
-        owned <- newIORef True
-        void $ forkFinally (server conn owned) (const $ do
+        owned <- newIORef [conn]
+        void $ forkFinally (server conn owned) $ const $ do
           owned <- readIORef owned
-          if owned then gracefulClose conn 5000 else return ())
+          mapM_ (`gracefulClose` 5000) owned

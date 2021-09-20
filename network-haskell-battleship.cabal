@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: c58adb2db73df85ac288c8c29d4a9770102246ca685f75ac6e06e4d8e746237c
+-- hash: 70d2ecc4b8fb6eac141248cabc4e5f6ceb346018853d050076ca561e6fb37d36
 
 name:           network-haskell-battleship
 version:        0.1.0.0
@@ -35,6 +35,7 @@ library
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , containers
     , network
     , text
   default-language: Haskell2010
@@ -49,6 +50,7 @@ executable client
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , containers
     , network
     , network-haskell-battleship
     , text
@@ -66,6 +68,7 @@ executable server
   build-depends:
       base >=4.7 && <5
     , bytestring
+    , containers
     , network
     , network-haskell-battleship
     , text

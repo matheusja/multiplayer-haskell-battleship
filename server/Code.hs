@@ -1,8 +1,8 @@
 module Code where
 import Data.ByteString
-import Conversions
 import Data.IORef
-newtype Type = Type Word deriving (Eq, Ord);
+import Conversions
+newtype Type = Type Integer deriving (Eq, Ord);
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
@@ -12,8 +12,8 @@ code_text = show . unwrap
 encode :: Type -> ByteString
 encode = string_to_utf8 . code_text
 
-decode :: ByteString -> Type
-decode = Type . read . string_from_utf8
+decode :: String -> Maybe Type
+decode = fmap Type . parseInt
 
-unwrap :: Type -> Word
+unwrap :: Type -> Integer
 unwrap(Type c) = c
