@@ -8,23 +8,26 @@ import Network.Socket.ByteString as NS
 import qualified Code
 
 import Conversions(string_to_utf8, string_from_utf8)
-
+import Data.Bifunctor (first, second)
+{-# ANN module "HLint: ignore Use camelCase" #-}
 alocator :: IO (Code.Type -> IO (), IO Code.Type)
 alocator = do
-  counter_now <- newIORef 0
-  unused_list <- newIORef []
-  let addUnused x = atomicModifyIORef' unused_list $ (,) <$> (x:) <*> const ()
-  let alocate = do {
-    v_unused_list <- readIORef unused_list;
-    case uncons v_unused_list of
-      -- unused_list == []
-      Nothing ->
-        Code.Type <$> atomicModifyIORef' counter_now ((+1) >>= (,))
-      Just (first_element, remainer_elems) -> do
-        atomicWriteIORef unused_list remainer_elems
-        return first_element
-  }
-  return (addUnused , alocate)
+  generator_state <- newIORef ([], 0)
+  let addUnused = atomicModifyIORef' generator_state . add_value . Code.unwrap
+  let alocate = Code.Type <$> atomicModifyIORef' generator_state extract_value
+  return (addUnused, alocate)
+  where
+    add_value value (unused_list, next_value) =
+      ((value:unused_list, next_value), ())
+    extract_value (unused_list, next_value) =
+      case uncons unused_list of
+        -- unused_list == []
+        Nothing ->
+          ((unused_list, next_value+1), next_value)
+        Just (first_element, remainer_elems) -> do
+          ((remainer_elems, next_value), first_element)
+
+
 
 
 lobby_start :: (Code.Type -> IO ()) -> IO Code.Type -> Socket -> IO ()

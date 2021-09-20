@@ -4,6 +4,7 @@ import Conversions
 import Data.IORef
 newtype Type = Type Word deriving (Eq, Ord);
 
+{-# ANN module "HLint: ignore Use camelCase" #-}
 
 code_text :: Type -> String
 code_text = show . unwrap
