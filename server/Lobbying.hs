@@ -51,16 +51,14 @@ lobby_start return_code aloc register_socket take_socket socket owned = do
   msg <- NS.recv socket 1024
   let m = string_from_utf8 msg
   putStrLn $ "Received: " ++ m;
-  let firstword = head (words m)
-  case firstword of
-    "lobby" | length m == length "looby" -> do
+  case words m of
+    ["lobby"] -> do
       code <- aloc
       putStrLn $ "Generated " ++ Code.code_text code
       NS.sendAll socket $ Code.encode code
       register_socket code socket
       writeIORef owned []
-    "join" | length (words m) == 2 -> do
-      let code_str = words m !! 1
+    ["join", code_str] -> do
       putStrLn $ "Recieved request to join lobby \"" ++ code_str ++ "\""
       let code = Code.decode code_str
       case code of
