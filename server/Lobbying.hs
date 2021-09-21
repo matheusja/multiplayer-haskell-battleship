@@ -11,6 +11,11 @@ import qualified Code
 import Conversions
 import Data.Bifunctor (first, second)
 {-# ANN module "HLint: ignore Use camelCase" #-}
+
+-- Essa acao retorna 2 "operacoes":
+-- - colocar um codigo na lista de "nao utilizados"
+-- - pegar o proximo codigo nao utilizado
+-- Ambas as operacoes sao atomicas
 alocator :: IO (Code.Type -> IO (), IO Code.Type)
 alocator = do
   generator_state <- newIORef ([], 0)
@@ -28,6 +33,11 @@ alocator = do
         Just (first_element, remainer_elems) -> do
           ((remainer_elems, next_value), first_element)
 
+-- Essa acao retorna 3 "operacoes":
+-- - colocar um soquete, associado a um codigo
+-- - retirar um soquete, atraves do codigo associado
+-- - liberar todos os soquetes;
+-- as 2 primeiras operacoes sao atomicas 
 register :: IO(Code.Type -> Socket -> IO(), Code.Type -> IO (Maybe Socket), IO ())
 register = do
   register_state <- newIORef M.empty
@@ -52,35 +62,38 @@ lobby_start return_code aloc register_socket take_socket socket owned = do
   let m = string_from_utf8 msg
   putStrLn $ "Received: " ++ m;
   case words m of
+    -- Caso a mensagem seja somente a palavra "lobby"
     ["lobby"] -> do
       code <- aloc
       putStrLn $ "Generated " ++ Code.code_text code
       NS.sendAll socket $ Code.encode code
       register_socket code socket
       writeIORef owned []
+    -- Case o mensagem seja a palavra "join" e outra string - que sera assocaida a code_str
     ["join", code_str] -> do
       putStrLn $ "Recieved request to join lobby \"" ++ code_str ++ "\""
       let code = Code.decode code_str
       case code of
-        Nothing -> do
-          putStrLn "Could not parse code"
-          NS.sendAll socket $ string_to_utf8 "Could not parse code"
-      
+        Nothing -> fail_send socket "Could not parse code"  
         Just n -> do
           putStrLn "Parsed code succesfully"
           msocket2 <- take_socket n
           case msocket2 of
-            Nothing -> do
-              putStrLn "Lobby code does not exist"
-              NS.sendAll socket $ string_to_utf8 "Lobby code does not exist"
+            Nothing -> fail_send socket "Lobby code does not exist"
             Just socket2 -> do
               return_code n
               modifyIORef' owned (socket2:)
               putStrLn $ "Starting game from lobby " ++ show (Code.unwrap n)
               game socket socket2
+    -- default:
     _ -> do
       putStrLn "Command not understood"
       NS.sendAll socket $ string_to_utf8 "What?"
+
+fail_send socket msg = do
+  NS.sendAll socket $ string_to_utf8 msg
+  error msg
+  
 
 game :: Socket -> Socket -> IO ()
 game s1 s2 = do

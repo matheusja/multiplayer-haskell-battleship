@@ -16,10 +16,14 @@ ignoreSecond f a _ = f a
 
 main :: IO ()
 main = do
+  -- Cira um "alocador" de codigos para os lobbies - receber as 2 funcionalidades
   (return_code, aloc) <- Lobbying.alocator
-  E.bracket Lobbying.register 
+  -- Com o Lobbying.register aberto
+  E.bracket Lobbying.register
+    -- passar as 2 funcionalidades para o código do servidor
     (\(register_socket, take_socket, _) ->
        runTCPServer Nothing "3000" $ Lobbying.lobby_start return_code aloc register_socket take_socket)
+    -- se o servidor sair, liberar os soquetes guardados
     (\(_, _, clean_up) -> clean_up)
 
 -- from the "network-run" package.
@@ -37,7 +41,7 @@ runTCPServer mhost port server = withSocketsDo $ do
     open addr = do
         sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
         setSocketOption sock ReuseAddr 1
-        withFdSocket sock $ setCloseOnExecIfNeeded
+        withFdSocket sock setCloseOnExecIfNeeded
         bind sock $ addrAddress addr
         listen sock 1024
         return sock
