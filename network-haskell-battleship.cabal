@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 441be9f10b28b538d73bb86272d672e93b1df9f56517da0df4858be5d56ff28a
+-- hash: f331aae73e96b077bc7c8e11f405e5eb30703712a9fd431fc0fb5e9aeb43b6fe
 
 name:           network-haskell-battleship
 version:        0.1.0.0
@@ -27,7 +27,11 @@ source-repository head
 
 library
   exposed-modules:
+      Battleship
       Conversions
+      Game
+      Sea
+      Setup
   other-modules:
       Paths_network_haskell_battleship
   hs-source-dirs:
@@ -44,6 +48,7 @@ library
 executable client
   main-is: Main.hs
   other-modules:
+      Display
       Paths_network_haskell_battleship
   hs-source-dirs:
       client
