@@ -25,6 +25,7 @@ dependencies:
 - text
 - bytestring
 - containers
+- ansi-terminal
 
 library:
   source-dirs: src

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 70d2ecc4b8fb6eac141248cabc4e5f6ceb346018853d050076ca561e6fb37d36
+-- hash: 441be9f10b28b538d73bb86272d672e93b1df9f56517da0df4858be5d56ff28a
 
 name:           network-haskell-battleship
 version:        0.1.0.0
@@ -33,7 +33,8 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      ansi-terminal
+    , base >=4.7 && <5
     , bytestring
     , containers
     , network
@@ -48,7 +49,8 @@ executable client
       client
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      ansi-terminal
+    , base >=4.7 && <5
     , bytestring
     , containers
     , network
@@ -66,7 +68,8 @@ executable server
       server
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      ansi-terminal
+    , base >=4.7 && <5
     , bytestring
     , containers
     , network
