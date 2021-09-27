@@ -3,10 +3,10 @@ import Data.Bifunctor (first, second)
 import Data.List (intersect)
 type Pos  = (Int, Int);
 
-data Dir = North | West | South | East deriving Eq -- direction of the ship
+data Dir = North | West | South | East deriving (Eq, Show, Read) -- direction of the ship
 
-data Def  = Def String Int deriving Eq
-data Inst = Inst Def Pos Dir deriving Eq
+data Def  = Def String Int deriving (Eq, Show, Read)
+data Inst = Inst Def Pos Dir deriving (Eq, Show, Read)
 
 
 type FleetDef = [Def]

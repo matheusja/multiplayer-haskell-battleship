@@ -26,6 +26,8 @@ dependencies:
 - bytestring
 - containers
 - ansi-terminal
+- random
+- transformers
 
 library:
   source-dirs: src

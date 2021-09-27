@@ -7,6 +7,7 @@ import qualified Control.Exception as E
 import Network.Socket
 import Network.Socket.ByteString as NS
 import qualified Code
+import qualified GameServer
 
 import Conversions
 import Data.Bifunctor (first, second)
@@ -84,7 +85,7 @@ lobby_start return_code aloc register_socket take_socket socket owned = do
               return_code n
               modifyIORef' owned (socket2:)
               putStrLn $ "Starting game from lobby " ++ show (Code.unwrap n)
-              game socket socket2
+              GameServer.game socket socket2
     -- default:
     _ -> do
       putStrLn "Command not understood"
@@ -94,8 +95,3 @@ fail_send socket msg = do
   NS.sendAll socket $ string_to_utf8 msg
   error msg
   
-
-game :: Socket -> Socket -> IO ()
-game s1 s2 = do
-  NS.sendAll s1 $ string_to_utf8 "Ok"
-  NS.sendAll s2 $ string_to_utf8 "Ok"

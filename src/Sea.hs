@@ -5,10 +5,10 @@ import qualified Battleship
 import Data.List (foldl')
 import Data.Bifunctor (first, second)
 
-data SeaTileState = Pristine | Bombed deriving Eq
-data ShipTileState = ShipPresent Battleship.Inst | ShipAbsent deriving Eq
+data SeaTileState = Pristine | Bombed deriving (Show, Read, Eq)
+data ShipTileState = ShipPresent Battleship.Inst | ShipAbsent deriving (Show, Read, Eq)
 type SeaTile = (SeaTileState, ShipTileState)
-data BombResult = Hit Battleship.Inst | ShipDestroyed Battleship.Inst | Miss deriving Eq
+data BombResult = Hit Battleship.Inst | ShipDestroyed Battleship.Inst | Miss deriving (Show, Read, Eq)
 type Sea    = [[SeaTile]]
 type Setup  = [[ShipTileState]]
 
@@ -37,6 +37,14 @@ uPosMap x y f m = uPos x y (f $ gPos x y m) m
 dims :: [[a]] -> Bounds
 dims m = (length $ head m, length m)
 
+placeShip :: Battleship.Inst -> Setup -> Setup
+placeShip ship setup = foldl' (flip ($)) setup $ fmap (placeShipSegment ship) $ filter (flip checkPosBounds $ dims setup) $ Battleship.getSegments ship
+
+placeShipSegment :: Battleship.Inst -> Pos -> Setup -> Setup
+placeShipSegment ship p = uncurry uPos p $ ShipPresent ship
+
+placeFleet :: Battleship.Fleet -> Setup -> Setup
+placeFleet fleet setup = foldl' (flip ($)) setup $ fmap placeShip fleet
 
 checkBounds :: Battleship.Inst -> Bounds -> Bool
 checkBounds inst bounds =
@@ -50,44 +58,15 @@ checkPosBounds :: Battleship.Pos -> Bounds -> Bool
 checkPosBounds (x,y) (lx, ly) = x >= 0 && y >= 0 && x < lx && y < ly
 
 
--- ~  ~  ~ [ ] ;  #  #  ~  ~  ~  ~ 
-drawFull :: Sea -> [[Char]]
-drawFull = (fmap . fmap) convertTile
-  where
-    convertTile :: SeaTile -> Char
-    convertTile (Pristine, ShipPresent _) = '#' 
-    convertTile (Bombed  , ShipPresent _) = ';'
-    convertTile (Pristine, ShipAbsent)   = '~'
-    convertTile (Bombed  , ShipAbsent)   = ' '
-
-drawSetup :: Setup -> [[Char]]
-drawSetup = drawFull . (fmap . fmap) ((,) Pristine)
-
-hideShips :: [[Char]] -> [[Char]]
-hideShips = (fmap . fmap) hideTile
-  where
-    hideTile :: Char -> Char
-    hideTile '#' = '~'
-    hideTile  x  =  x
-
 -- Sea.create
 setupCreate :: Bounds -> Setup
 setupCreate (l,h) = replicate h $ replicate l $ ShipAbsent
 
-placeFleet :: Battleship.Fleet -> Setup -> Setup
-placeFleet fleet setup = foldl' (flip ($)) setup $ fmap placeShip fleet
-
-placeShip :: Battleship.Inst -> Setup -> Setup
-placeShip ship setup = foldl' (flip ($)) setup $ fmap (placeShipSegment ship) $ filter (flip checkPosBounds $ dims setup) $ Battleship.getSegments ship
-
-placeShipSegment :: Battleship.Inst -> Pos -> Setup -> Setup
-placeShipSegment ship p = uncurry uPos p $ ShipPresent ship
-
 generateRealSea :: Setup -> Sea
 generateRealSea = (fmap . fmap) ((,) Pristine)
 
-bombPos :: Pos -> Sea -> Maybe (Sea, BombResult)
-bombPos pos sea
+bombPosOwned :: Pos -> Sea -> Maybe (Sea, BombResult)
+bombPosOwned pos sea
   | not $ checkPosBounds pos $ dims sea = Nothing
   | alreadyBombed target = Nothing -- Fails if you bombed it a already so the game can stop 
   | otherwise            = case snd target of
