@@ -24,7 +24,7 @@ parseCommand  x   = fmap (Move . Battleship.move . Battleship.getDisPlacement) $
 defaultInst :: Battleship.Def -> Battleship.Inst
 defaultInst def = Battleship.Inst def (0,0) Battleship.South
 
-ships :: Sea.Bounds -> Battleship.FleetDef -> IO (Battleship.Fleet)
+ships :: Sea.Bounds -> Battleship.FleetDef -> IO Battleship.Fleet
 ships bounds = foldl' joinF (return []) . fmap (placeShipLoop bounds . defaultInst)
 
 placeShipLoop :: Sea.Bounds -> Battleship.Inst -> [Battleship.Inst] -> IO Battleship.Inst

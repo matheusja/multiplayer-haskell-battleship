@@ -66,10 +66,23 @@ tryHead [    ] = Nothing
 tryHead (x:xs) = Just x
 
 
+
 game :: Socket -> Socket -> IO ()
 game s1 s2 = do
-  NS.sendAll s1 $ string_to_utf8 "Ok"
-  NS.sendAll s2 $ string_to_utf8 "Ok"
+  let config = show Sea.standardBounds ++ "\n" ++ show Battleship.standardFleet
+  NS.sendAll s1 $ string_to_utf8 $ "Setup\n" ++ config 
+  NS.sendAll s2 $ string_to_utf8 $ "Setup\n" ++ config
+  putStrLn "Recieving player 1"
+  rawdata_p1 <- string_from_utf8 <$>  NS.recv s1 1024
+  putStrLn "Recieving player 2"
+  rawdata_p2 <- string_from_utf8 <$> NS.recv s2 1024
+  putStrLn "Recieved both players"
+  let data_p1 = read rawdata_p1 :: [Battleship.Inst]
+  let data_p2 = read rawdata_p2 :: [Battleship.Inst]
+  print data_p1
+  print data_p2
+
+
 
 substSeaAI :: PlayerAI -> Sea.Sea -> PlayerAI
 substSeaAI aiThings newSea = Bifunctor.first (Bifunctor.first (const newSea)) aiThings

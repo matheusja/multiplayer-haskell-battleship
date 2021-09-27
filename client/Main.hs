@@ -11,6 +11,11 @@ import Data.List
 
 import qualified System.IO as I_O
 import qualified System.Console.ANSI as Console
+
+import qualified Sea
+import qualified SetupClient as Setup
+import qualified Battleship
+import Control.Monad
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 start = do
@@ -49,13 +54,22 @@ main = do
   
 connection add port message = runTCPClient add port $ \s -> (do
   NS.sendAll s $ C.string_to_utf8 message
-  msg <- NS.recv s 1024
-  putStrLn $ "Received: " ++ C.string_from_utf8 msg
-  _ <- getLine -- evitar sair
-  msg <- NS.recv s 1024
-  putStrLn $ "Received: " ++ C.string_from_utf8 msg
-  _ <- getLine -- evitar sair
-  return ())
+  when (message == "lobby") (do 
+    msg <- C.string_from_utf8 <$> NS.recv s 1024
+    putStrLn $ "Received:\n" ++ msg
+    )
+  msg <- C.string_from_utf8 <$> NS.recv s 1024
+  putStrLn $ "Received:\n" ++ msg
+  let [header, size_line, fleetdef_line] = lines msg
+  let size = (read size_line :: Sea.Bounds)
+  let fleetdef = (read fleetdef_line :: Battleship.FleetDef)
+  fleet <- Setup.ships size fleetdef
+  let strdef = show fleet
+  putStrLn strdef
+  NS.sendAll s $ C.string_to_utf8 strdef 
+  _ <- getLine
+  return ()
+  )
 
 -- from the "network-run" package.
 runTCPClient :: HostName -> ServiceName -> (Socket -> IO a) -> IO a
