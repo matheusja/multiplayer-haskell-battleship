@@ -25,7 +25,7 @@ exit = do
 
 parse_args args = case args of
   ["help"] -> Nothing
-  [ip] -> Just ("127.0.0.1", "3000", "lobby")
+  [ip] -> Just (ip, "3000", "lobby")
   [ip, port] -> Just (ip, port, "lobby")
   [ip, port, lobby] -> Just (ip, port, "join " ++ lobby)
   [] -> Just ("127.0.0.1", "3000", "lobby")
