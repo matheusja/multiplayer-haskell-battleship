@@ -74,5 +74,11 @@ nameDef = fst . unDef
 
 getDef :: Inst -> Def
 getDef = fst . fst . unInst
+
 nameInst :: Inst -> String
 nameInst = nameDef . getDef
+
+onlyName :: String -> Inst
+onlyName name = Inst (Def name no_more) no_more no_more
+  where
+    no_more = error "no more data"

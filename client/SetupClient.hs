@@ -17,7 +17,7 @@ data Command = Move (Battleship.Inst -> Battleship.Inst) | Place
 parseCommand :: Char -> Maybe Command
 parseCommand 'e'  = Just  $  Move   Battleship.rotateClockwise
 parseCommand 'q'  = Just  $  Move   Battleship.rotateCounterClockwise
-parseCommand '\n' = Just  $  Place
+parseCommand 'c' = Just  $  Place
 parseCommand  x   = fmap (Move . Battleship.move . Battleship.getDisPlacement) $ Battleship.parseDir x
 
 
@@ -39,7 +39,7 @@ placeShipLoop bounds shipinst@(Battleship.Inst (Battleship.Def name size) pos di
   I_O.putStrLn " para rotacioná-lo."
   
   I_O.putStr "Aperte a tecla "
-  Display.putStrRed "Enter"
+  Display.putStrRed "C"
   I_O.putStrLn " para fixá-lo"
   
   let segments = Battleship.getSegments shipinst
