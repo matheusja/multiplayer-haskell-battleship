@@ -60,4 +60,4 @@ updateSea pos sea result
     there_is_ship :: Battleship.Inst -> Sea
     there_is_ship x = (uncurry uPos) pos (Bombed, ShipPresent x) sea
     there_is_no_ship :: Sea
-    there_is_no_ship = (uncurry uPos) pos (Pristine, ShipAbsent) sea
+    there_is_no_ship = (uncurry uPos) pos (Bombed, ShipAbsent) sea
