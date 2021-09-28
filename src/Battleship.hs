@@ -79,6 +79,10 @@ nameInst :: Inst -> String
 nameInst = nameDef . getDef
 
 onlyName :: String -> Inst
-onlyName name = Inst (Def name no_more) no_more no_more
-  where
-    no_more = error "no more data"
+onlyName name = Inst (Def name 1) (0,0) South
+
+dummyDef :: Def
+dummyDef = Def "" 1
+
+dummyShip :: Inst
+dummyShip = onlyName ""

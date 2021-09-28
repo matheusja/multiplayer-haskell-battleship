@@ -17,7 +17,7 @@ data Command = Move (Battleship.Inst -> Battleship.Inst) | Place
 parseCommand :: Char -> Maybe Command
 parseCommand 'e'  = Just  $  Move   Battleship.rotateClockwise
 parseCommand 'q'  = Just  $  Move   Battleship.rotateCounterClockwise
-parseCommand 'c' = Just  $  Place
+parseCommand 'c'  = Just  $  Place
 parseCommand  x   = fmap (Move . Battleship.move . Battleship.getDisPlacement) $ Battleship.parseDir x
 
 

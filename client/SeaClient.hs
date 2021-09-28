@@ -36,7 +36,7 @@ bombPos :: Socket -> Sea.Pos -> Sea -> IO(Maybe(Sea, BombResult))
 bombPos s pos sea =
   if fst(uncurry gPos pos sea) == Pristine then do
     NS.sendAll s $ string_to_utf8 $ show $ Attack pos
-    msg <- string_from_utf8 <$> NS.recv s 1024
+    msg <- string_from_utf8 <$> NS.recv s 5
     putStrLn msg
     let result = read msg :: ServerAttackNotify
     return $ Just $ liftM2 (,) (updateSea pos sea) id $ convertResponse result
@@ -47,7 +47,7 @@ bombPos s pos sea =
 convertResponse :: ServerAttackNotify -> BombResult
 convertResponse resp = case resp of
   Game.Miss -> Sea.Miss
-  Game.Hit -> Sea.Hit (error "ship not defined")
+  Game.Hit -> Sea.Hit Battleship.dummyShip
   (Game.Sunk shipname) -> Sea.ShipDestroyed $ Battleship.onlyName shipname
 
 updateSea :: Sea.Pos -> Sea -> BombResult -> Sea

@@ -59,6 +59,8 @@ loop :: Socket -> Socket -> Sea.Sea -> Sea.Sea -> IO ()
 loop s1 s2 sea1 sea2 = do
   rawdata_p1 <- string_from_utf8 <$> NS.recv s1 1024
   rawdata_p2 <- string_from_utf8 <$> NS.recv s2 1024
+  putStrLn rawdata_p1
+  putStrLn rawdata_p2
   let data_p1 = read rawdata_p1 :: ClientTurnDecision
   let data_p2 = read rawdata_p2 :: ClientTurnDecision
   case (data_p1, data_p2) of
@@ -68,11 +70,11 @@ loop s1 s2 sea1 sea2 = do
     (Attack p1, Attack p2) -> do
       let (newSea2, status1) = fromMaybe (error "Player 1 bombed invalid position") $ Sea.bombPosOwned p1 sea2
       let (newSea1, status2) = fromMaybe (error "Player 2 bombed invalid position") $ Sea.bombPosOwned p2 sea1
-      let status_attack1 = string_to_utf8 $ show $ convert_report status1
-      let status_attack2 = string_to_utf8 $ show $ convert_report status2
+      let status_attack1 = show $ convert_report status1
+      let status_attack2 = show $ convert_report status2
       -- Notify attack authors
-      NS.sendAll s1 status_attack1
-      NS.sendAll s2 status_attack2
+      NS.sendAll s1 $ string_to_utf8 $ status_attack1 ++ "\n\n"
+      NS.sendAll s2 $ string_to_utf8 $ status_attack2 ++ "\n\n"
       
       case (check_lose newSea1, check_lose newSea2) of
         (True , True ) -> bothLost s1 s2 p1 p2
