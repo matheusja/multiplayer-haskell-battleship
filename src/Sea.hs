@@ -58,6 +58,9 @@ checkBounds inst bounds =
 checkPosBounds :: Battleship.Pos -> Bounds -> Bool
 checkPosBounds (x,y) (lx, ly) = x >= 0 && y >= 0 && x < lx && y < ly
 
+tryPlaceFleet :: Battleship.Fleet -> Setup -> Maybe Setup 
+tryPlaceFleet fleet setup = foldl' (>>=) (Just setup) $ fmap tryPlaceShip fleet
+
 tryPlaceShip :: Battleship.Inst -> Setup -> Maybe Setup
 tryPlaceShip ship setup = do
  let inside_bounds = (`checkPosBounds` dims setup)
@@ -66,7 +69,6 @@ tryPlaceShip ship setup = do
   foldl' (>>=) (Just setup) $ fmap (tryPlaceShipSegment ship) segments
  else
   Nothing
-
 
 tryPlaceShipSegment :: Battleship.Inst -> Sea.Pos -> Setup -> Maybe Setup
 tryPlaceShipSegment ship pos sea =

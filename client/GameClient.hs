@@ -108,8 +108,11 @@ player_turn socket state@(mySea, aiSea) pos bres@(bresYou, bresAI) = do
       let else_do = player_turn socket state pos bres
       maybe else_do on_sucess_do mresult
 
-run :: Socket -> MyState -> IO((Result, MyState))
-run socket gameState = loop socket (0,0) gameState (Sea.Miss, Sea.Miss)
+blankEnemySea :: Sea.Sea -> Sea.Sea
+blankEnemySea = (map . map) (const (Sea.Pristine, Sea.ShipAbsent))
+
+run :: Socket -> Sea.Sea -> IO((Result, MyState))
+run socket mySea = loop socket (0,0) (mySea, blankEnemySea mySea) (Sea.Miss, Sea.Miss)
 
 loop :: Socket -> Pos -> MyState -> (Sea.BombResult, Sea.BombResult) -> IO((Result, MyState))
 loop socket pos state (bresYou, bresAI) = do
@@ -120,17 +123,25 @@ loop socket pos state (bresYou, bresAI) = do
       (state, nbresMe, ending) <- ai_turn socket newState0
       case ending of
         (Just result) -> return (result, state)
-        Nothing -> loop socket pos state (nbresYou, nbresMe)
+        Nothing -> loop socket pos state (nbresYou, fromJust nbresMe)
 
 
 
-ai_turn :: Socket -> MyState -> IO (MyState, Sea.BombResult, Maybe Result)
+ai_turn :: Socket -> MyState -> IO (MyState, Maybe Sea.BombResult, Maybe Result)
 ai_turn server state@(mySea, aiSea) = do
   response <- string_from_utf8 <$> NS.recv server 1024
-  let (bombPos, status) = read response :: ServerResponse
-  let (myNewSea, bombResult) = fromMaybe (error "Server sent invalid coordinates") $ Sea.bombPosOwned bombPos mySea
-  let nextstate = (myNewSea, aiSea) 
-  return (nextstate, bombResult, status)
+  let status = read response :: ServerEnemyAttackNotify
+  case status of
+    (JustAttackedAt pos) -> do
+      let (myNewSea, bombResult) = fromMaybe (error "Server sent invalid coordinates") $ Sea.bombPosOwned pos mySea
+      let nextstate = (myNewSea, aiSea)
+      return (nextstate, Just bombResult, Nothing)
+    (JustEnd result) -> do
+      return (state, Nothing, Just result)
+    (BothAtackAndEnd pos result) -> do
+      let (myNewSea, bombResult) = fromMaybe (error "Server sent invalid coordinates") $ Sea.bombPosOwned pos mySea
+      let nextstate = (myNewSea, aiSea)
+      return (nextstate, Just bombResult, Just result)
 
 reportResult :: Result -> String
 reportResult Victory    = "Você ganhou ao destruir a frota inimiga!"
@@ -138,3 +149,4 @@ reportResult Defeat     = "Você perdeu ao ter sua frota destruída pelo inimigo
 reportResult Tie        = "Você empatou ao destruir a frota inimiga e ter sua frota destruída pelo inimigo no mesmo turno!"
 reportResult Yield      = "Você perdeu ao desistir do jogo!"
 reportResult EnemyYield = "Você ganhou pois o seu oponente desistiu"
+reportResult TieYield   = "Você empatou ao desistir do jogo junto com o inimigo!"

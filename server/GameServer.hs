@@ -8,58 +8,26 @@ import qualified System.Random as Random
 import Network.Socket
 import Network.Socket.ByteString as NS
 
-import qualified Data.Maybe as MMaybe
+import Data.Maybe
 import qualified Data.Bifunctor as Bifunctor
 
 import qualified Battleship
 import qualified Sea
 import qualified Setup
 import qualified Control.Monad
+import Game
 
 type Player   = (Sea.Sea, Battleship.Fleet)
-data Memory   = Hunt | Target Pos [(Dir, Maybe Int)] -- 2 "states"
-type PlayerAI = (Player, Memory)
-type State    = (Player, PlayerAI)
 type Dir      = Battleship.Dir
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
-newAI :: Player -> PlayerAI
-newAI p = (p, Hunt)
-
 seaTileHasIntactShip :: Sea.SeaTile -> Bool
 seaTileHasIntactShip = uncurry (&&) . Bifunctor.bimap (== Sea.Pristine) (/= Sea.ShipAbsent)
 
-check_win :: Sea.Sea -> Bool
-check_win = not . any seaTileHasIntactShip . concat
+check_lose :: Sea.Sea -> Bool
+check_lose = not . any seaTileHasIntactShip . concat
 
-guard :: (a -> Bool) -> a -> Maybe a
-guard f = MMaybe.listToMaybe . filter f . MMaybe.maybeToList . Just
-
-extendMaybe :: (a, Maybe b) -> Maybe (a,b)
-extendMaybe (a, x) = fmap ((,) a) x
-{-
-extendMaybe :: (a, Maybe b) -> Maybe (a,b)
-extendMaybe (a, Nothing) = Nothing
-extendMaybe (a, Just b) = Just (a,b)
--}
-
-applyNtimes :: (a -> a) -> Int -> a -> a
-applyNtimes f n a = (iterate f a) !! n
-
-updateByIndex :: (Eq a) => a -> (b -> b) -> [(a,b)] -> [(a,b)]
-updateByIndex i f [    ] = []
-updateByIndex i f (x:xs)
-  | i == fst x = (fmap f x):updateByIndex i f xs
-  | otherwise  =         x :updateByIndex i f xs
-
-
-getRandomPos :: [a] -> IO a
-getRandomPos [ ] = error "Empty choice list"
-getRandomPos  l  = do
-  let len = length l
-  c <- Random.randomRIO (0, len - 1)
-  return (l !! c)
 
 tryHead :: [a] -> Maybe a
 tryHead [    ] = Nothing
@@ -83,70 +51,86 @@ game s1 s2 = do
   let data_p2 = read rawdata_p2 :: [Battleship.Inst]
   let base_sea = Sea.setupCreate bounds
   
-  print data_p1
-  print data_p2
+  let sea_p1 = Sea.generateRealSea $ fromMaybe (error "Invalid fleet from player 1") $ Sea.tryPlaceFleet data_p1 base_sea
+  let sea_p2 = Sea.generateRealSea $ fromMaybe (error "Invalid fleet from player 2") $ Sea.tryPlaceFleet data_p2 base_sea
+  loop s1 s2 sea_p1 sea_p2
+
+loop :: Socket -> Socket -> Sea.Sea -> Sea.Sea -> IO ()
+loop s1 s2 sea1 sea2 = do
+  rawdata_p1 <- string_from_utf8 <$> NS.recv s1 1024
+  rawdata_p2 <- string_from_utf8 <$> NS.recv s2 1024
+  let data_p1 = read rawdata_p1 :: ClientTurnDecision
+  let data_p2 = read rawdata_p2 :: ClientTurnDecision
+  case (data_p1, data_p2) of
+    (Surrender, Surrender) -> bothSurrendered s1 s2
+    (Surrender, Attack p2) -> firstSurrendered s1 s2 sea1 sea2 p2
+    (Attack p1, Surrender) -> secondSurrendered s1 s2 sea1 sea2 p1
+    (Attack p1, Attack p2) -> do
+      let (newSea2, status1) = fromMaybe (error "Player 1 bombed invalid position") $ Sea.bombPosOwned p1 sea2
+      let (newSea1, status2) = fromMaybe (error "Player 2 bombed invalid position") $ Sea.bombPosOwned p2 sea1
+      let status_attack1 = string_to_utf8 $ show $ convert_report status1
+      let status_attack2 = string_to_utf8 $ show $ convert_report status2
+      -- Notify attack authors
+      NS.sendAll s1 status_attack1
+      NS.sendAll s2 status_attack2
+      
+      case (check_lose newSea1, check_lose newSea2) of
+        (True , True ) -> bothLost s1 s2 p1 p2
+        (False, True ) -> firstLost s1 s2 p2
+        (True , False) -> secondLost s1 s2 p1
+        (False, False) -> do -- carry on
+          let status_attacked1 = string_to_utf8 $ show $ JustAttackedAt p1
+          let status_attacked2 = string_to_utf8 $ show $ JustAttackedAt p2
+          -- Notify attack recievers
+          NS.sendAll s2 status_attacked1
+          NS.sendAll s1 status_attacked2
+          -- Next turn
+          loop s1 s2 newSea1 newSea2
+
+firstSurrendered :: Socket -> Socket -> Sea.Sea -> Sea.Sea -> Sea.Pos-> IO ()
+firstSurrendered s1 s2 sea1 sea2 p2 = do
+  --let status_attack1 = string_to_utf8 $ show $ Yielded
+  let (newSea1, status2) = fromMaybe (error "Winning player bombed invalid position") $ Sea.bombPosOwned p2 sea1
+  let status_attack2 = string_to_utf8 $ show $ convert_report status2
+  --NS.sendAll s1 status_attack1
+  NS.sendAll s2 status_attack2
+  let result1 = string_to_utf8 $ show $ JustEnd Defeat
+  let result2 = string_to_utf8 $ show $ JustEnd Victory
+  NS.sendAll s1 result1
+  NS.sendAll s2 result2
+
+secondSurrendered s1 s2 sea1 sea2 p1 = firstSurrendered s2 s1 sea2 sea1 p1
+
+bothSurrendered :: Socket -> Socket -> IO ()
+bothSurrendered s1 s2 = do
+  --let status_attack1 = string_to_utf8 $ show $ Yielded
+  --let status_attack2 = string_to_utf8 $ show $ Yielded
+  --NS.sendAll s1 status_attack1
+  --NS.sendAll s2 status_attack2 
+  let result = string_to_utf8 $ show $ JustEnd TieYield
+  NS.sendAll s1 result
+  NS.sendAll s2 result 
+
+bothLost :: Socket -> Socket -> Sea.Pos -> Sea.Pos -> IO ()
+bothLost s1 s2 p1 p2 = do
+  let result1 = string_to_utf8 $ show $ BothAtackAndEnd p2 TieYield
+  let result2 = string_to_utf8 $ show $ BothAtackAndEnd p1 TieYield
+  NS.sendAll s1 result1
+  NS.sendAll s2 result2
+
+firstLost :: Socket -> Socket -> Sea.Pos -> IO ()
+firstLost s1 s2 p2 = do
+  let result1 = string_to_utf8 $ show $ BothAtackAndEnd p2 Yield
+  let result2 = string_to_utf8 $ show $ JustEnd EnemyYield
+  NS.sendAll s1 result1
+  NS.sendAll s2 result2
+
+secondLost :: Socket -> Socket -> Sea.Pos -> IO ()
+secondLost s1 s2 p1 = firstLost s2 s1 p1 
 
 
-
-substSeaAI :: PlayerAI -> Sea.Sea -> PlayerAI
-substSeaAI aiThings newSea = Bifunctor.first (Bifunctor.first (const newSea)) aiThings
-
-ai_turn :: State -> IO((State, Sea.BombResult))
-ai_turn state@(player@(playerSea, _), myData@(_, Hunt)) = do
-  let try_again = ai_turn state
-  let (mx, my) = Sea.dims playerSea
-  x <- Random.randomRIO (0, mx-1)
-  y <- Random.randomRIO (0, my-1)
-  let pos = (x,y)
-  case Sea.bombPosOwned pos playerSea of
-    Nothing -> try_again
-    Just (newSea, bombRes) -> do
-      let playerWithNewSea = Bifunctor.first (const newSea) player
-      case bombRes of
-        Sea.Hit _ -> do
-          let myNewData = Bifunctor.second (\_ -> Target pos []) myData
-          return ((playerWithNewSea, myNewData), bombRes)
-        _     -> return ((playerWithNewSea, myData), bombRes)
-
-ai_turn state@(player@(playerSea, _), myData@(_, Target pos tried)) = do
-  let notFailed = MMaybe.mapMaybe extendMaybe tried
-  case tryHead notFailed of
-    Nothing -> do
-      let dirTried = fmap fst tried
-      let notTried = filter (not . (`elem` dirTried)) Battleship.directions
-      Control.Monad.when (null notTried) $ error "A IA nao sabe mais o que fazer"
-      nextTry <- getRandomPos notTried
-      let nextPos = Battleship.getDisPlacement nextTry pos
-      if Sea.checkPosBounds nextPos $ Sea.dims playerSea then
-        case Sea.bombPosOwned nextPos playerSea of
-          Nothing -> do
-            case snd $ uncurry Sea.gPos nextPos playerSea of
-              Sea.ShipAbsent -> ai_turn (player, (fst myData, Target pos $ (nextTry, Nothing):tried))
-              Sea.ShipPresent _ -> ai_turn (player, (fst myData, Target pos $ (nextTry, Just 1):tried))
-          Just (newSea, bombRes) -> do
-            case bombRes of
-              Sea.Miss -> do
-                return (((newSea, snd player), (fst myData, Target pos $ (nextTry, Nothing):tried)), bombRes)
-              Sea.Hit _ -> do
-                return (((newSea, snd player), (fst myData, Target pos $ (nextTry, Just 1):tried)), bombRes)
-              Sea.ShipDestroyed _ -> do
-                return (((newSea, snd player), (fst myData, Hunt)), bombRes)
-        else ai_turn (player, (fst myData, Target pos $ (nextTry, Nothing):tried))
-
-    Just (dir, dist) -> do
-      let nextPos = applyNtimes (Battleship.getDisPlacement dir) (dist + 1) pos
-      if Sea.checkPosBounds nextPos $ Sea.dims playerSea then
-        case Sea.bombPosOwned nextPos playerSea of
-          Nothing -> do
-            case snd $ uncurry Sea.gPos nextPos playerSea of
-              Sea.ShipAbsent -> ai_turn (player, (fst myData, Target pos $ updateByIndex dir (\_ -> Nothing) tried))
-              Sea.ShipPresent _ -> ai_turn (player, (fst myData, Target pos $ updateByIndex dir (fmap (+1)) tried))
-          Just (newSea, bombRes) -> do
-            case bombRes of
-              Sea.Miss -> do
-                return (((newSea, snd player), (fst myData, Target pos $ updateByIndex dir (\_ -> Nothing) tried)), bombRes)
-              Sea.Hit _ -> do
-                return (((newSea, snd player), (fst myData, Target pos $ updateByIndex dir (fmap (+1)) tried)), bombRes)
-              Sea.ShipDestroyed _ -> do
-                return (((newSea, snd player), (fst myData, Hunt)), bombRes)
-      else ai_turn (player, (fst myData, Target pos $ updateByIndex dir (\_ -> Nothing) tried))
+convert_report :: Sea.BombResult -> ServerAttackNotify
+convert_report bombres = case bombres of
+  (Sea.Hit _) -> Hit
+  (Sea.ShipDestroyed ship) -> Sunk (Battleship.nameInst ship)
+  (Sea.Miss) -> Miss

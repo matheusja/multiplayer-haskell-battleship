@@ -69,3 +69,10 @@ getPos = snd . fst . unInst
 checkIntersection :: Inst -> Inst -> Bool
 checkIntersection i0 i1 = not $ null $ intersect (getSegments i0) (getSegments i1)
 
+nameDef :: Def -> String
+nameDef = fst . unDef
+
+getDef :: Inst -> Def
+getDef = fst . fst . unInst
+nameInst :: Inst -> String
+nameInst = nameDef . getDef

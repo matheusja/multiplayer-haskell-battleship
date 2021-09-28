@@ -16,6 +16,8 @@ import qualified Sea
 import qualified SetupClient as Setup
 import qualified Battleship
 import Control.Monad
+import GameClient
+import Sea (placeFleet)
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 start = do
@@ -68,6 +70,11 @@ connection add port message = runTCPClient add port $ \s -> (do
   putStrLn strdef
   NS.sendAll s $ C.string_to_utf8 strdef 
   _ <- getLine
+
+  let sea = Sea.generateRealSea $ placeFleet fleet $ Sea.setupCreate size
+
+  run s sea
+
   return ()
   )
 
