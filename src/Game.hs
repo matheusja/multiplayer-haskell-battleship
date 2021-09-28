@@ -7,6 +7,7 @@ import qualified Sea
 type Pos      = Sea.Pos
 data Result   = Victory | Defeat | Tie | Yield | EnemyYield | TieYield deriving(Read, Show, Eq)
 
+data LobbyActions = Lobby | Join Integer deriving(Read, Show, Eq)
 data ClientACK = ClientACK deriving(Read, Show, Eq)
 data ClientTurnDecision = Surrender | Attack Pos deriving(Read, Show, Eq)
 data ServerAttackNotify = Miss | Hit | Sunk String deriving(Read, Show, Eq)

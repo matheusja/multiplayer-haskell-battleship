@@ -8,6 +8,7 @@ import Network.Socket
 import Network.Socket.ByteString as NS
 import qualified Code
 import qualified GameServer
+import Game
 
 import Conversions
 import Data.Bifunctor (first, second)
@@ -62,21 +63,22 @@ lobby_start return_code aloc register_socket take_socket socket owned = do
   msg <- NS.recv socket 1024
   let m = string_from_utf8 msg
   putStrLn $ "Received: " ++ m;
-  case words m of
+  case read m :: LobbyActions of
     -- Caso a mensagem seja somente a palavra "lobby"
-    ["lobby"] -> do
+    Lobby -> do
       code <- aloc
       putStrLn $ "Generated " ++ Code.code_text code
       NS.sendAll socket $ Code.encode code
       register_socket code socket
       writeIORef owned []
     -- Case o mensagem seja a palavra "join" e outra string - que sera assocaida a code_str
-    ["join", code_str] -> do
-      putStrLn $ "Recieved request to join lobby \"" ++ code_str ++ "\""
+    (Join nInt) -> do
+      {-putStrLn $ "Recieved request to join lobby \"" ++ code_str ++ "\""
       let code = Code.decode code_str
       case code of
         Nothing -> fail_send socket "Could not parse code"  
-        Just n -> do
+        Just n -> do -}
+          let n = Code.Type nInt
           putStrLn "Parsed code succesfully"
           msocket2 <- take_socket n
           case msocket2 of
@@ -86,10 +88,12 @@ lobby_start return_code aloc register_socket take_socket socket owned = do
               modifyIORef' owned (socket2:)
               putStrLn $ "Starting game from lobby " ++ show (Code.unwrap n)
               GameServer.game socket socket2
-    -- default:
+    -- Agora, havera um erro "no parse"
+    {- default:
     _ -> do
       putStrLn "Command not understood"
       NS.sendAll socket $ string_to_utf8 "What?"
+     -}
 
 fail_send socket msg = do
   NS.sendAll socket $ string_to_utf8 msg

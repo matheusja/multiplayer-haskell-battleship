@@ -12,6 +12,7 @@ import Data.List
 import qualified System.IO as I_O
 import qualified System.Console.ANSI as Console
 
+import Game
 import qualified Sea
 import qualified SetupClient as Setup
 import qualified Battleship
@@ -32,10 +33,10 @@ exit = do
 
 parse_args args = case args of
   ["help"] -> Nothing
-  [ip] -> Just (ip, "3000", "lobby")
-  [ip, port] -> Just (ip, port, "lobby")
-  [ip, port, lobby] -> Just (ip, port, "join " ++ lobby)
-  [] -> Just ("127.0.0.1", "3000", "lobby")
+  [ip] -> Just (ip, "3000", Lobby)
+  [ip, port] -> Just (ip, port, Lobby)
+  [ip, port, lobby] -> Just (ip, port, Join $ read lobby)
+  [] -> Just ("127.0.0.1", "3000", Lobby)
   _ -> Nothing 
    
 print_usage = do
@@ -55,13 +56,12 @@ main = do
   
   
 connection add port message = runTCPClient add port $ \s -> (do
-  NS.sendAll s $ C.string_to_utf8 message
-  when (message == "lobby") (do 
+  NS.sendAll s $ C.string_to_utf8 $ show message
+  when (message == Lobby) (do 
     msg <- C.string_from_utf8 <$> NS.recv s 1024
     putStrLn $ "Received:\n" ++ msg
     )
   msg <- C.string_from_utf8 <$> NS.recv s 1024
-  putStrLn $ "Received:\n" ++ msg
   let [header, size_line, fleetdef_line] = lines msg
   let size = (read size_line :: Sea.Bounds)
   let fleetdef = (read fleetdef_line :: Battleship.FleetDef)
