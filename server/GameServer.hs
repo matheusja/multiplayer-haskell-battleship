@@ -16,6 +16,7 @@ import qualified Sea
 import qualified Setup
 import qualified Control.Monad
 import Game
+import Control.Monad
 
 type Player   = (Sea.Sea, Battleship.Fleet)
 type Dir      = Battleship.Dir
@@ -73,8 +74,11 @@ loop s1 s2 sea1 sea2 = do
       let status_attack1 = show $ convert_report status1
       let status_attack2 = show $ convert_report status2
       -- Notify attack authors
-      NS.sendAll s1 $ string_to_utf8 $ status_attack1 ++ "\n\n"
-      NS.sendAll s2 $ string_to_utf8 $ status_attack2 ++ "\n\n"
+      NS.sendAll s1 $ string_to_utf8 $ status_attack1
+      NS.sendAll s2 $ string_to_utf8 $ status_attack2
+
+      ok_p1 <- read . string_from_utf8 <$> NS.recv s1 1024 :: IO ClientACK
+      ok_p2 <- read . string_from_utf8 <$> NS.recv s2 1024 :: IO ClientACK
       
       case (check_lose newSea1, check_lose newSea2) of
         (True , True ) -> bothLost s1 s2 p1 p2

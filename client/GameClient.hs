@@ -10,12 +10,11 @@ import qualified Battleship
 import qualified Display
 
 import Network.Socket
-import Network.Socket.ByteString as NS
+import qualified Network.Socket.ByteString as NS
 import Data.Maybe
 
 import Control.Monad
 import Control.Monad.Trans.Maybe
-
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 data Command = Quit | Fire | Move (Pos -> Pos)
@@ -95,8 +94,7 @@ player_turn socket state@(mySea, aiSea) pos bres@(bresYou, bresAI) = do
   cmd <- fmap parseCommand I_O.getChar
   case cmd of
     Nothing       -> player_turn socket state pos bres
-    Just Quit     -> do
-      return Nothing
+    Just Quit     -> surrender socket
     Just (Move m) -> do
       let npos = m pos
       if Sea.checkPosBounds npos $ Sea.dims aiSea
@@ -125,7 +123,9 @@ loop socket pos state (bresYou, bresAI) = do
         (Just result) -> return (result, state)
         Nothing -> loop socket pos state (nbresYou, fromJust nbresMe)
 
-
+surrender socket = do
+  NS.sendAll socket $ string_to_utf8 $ show $ Surrender
+  return Nothing
 
 ai_turn :: Socket -> MyState -> IO (MyState, Maybe Sea.BombResult, Maybe Result)
 ai_turn server state@(mySea, aiSea) = do
