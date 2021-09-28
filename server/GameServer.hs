@@ -69,7 +69,9 @@ tryHead (x:xs) = Just x
 
 game :: Socket -> Socket -> IO ()
 game s1 s2 = do
-  let config = show Sea.standardBounds ++ "\n" ++ show Battleship.standardFleet
+  let bounds = Sea.standardBounds
+  let fleetdef = Battleship.standardFleet
+  let config = show bounds ++ "\n" ++ show fleetdef 
   NS.sendAll s1 $ string_to_utf8 $ "Setup\n" ++ config 
   NS.sendAll s2 $ string_to_utf8 $ "Setup\n" ++ config
   putStrLn "Recieving player 1"
@@ -79,6 +81,8 @@ game s1 s2 = do
   putStrLn "Recieved both players"
   let data_p1 = read rawdata_p1 :: [Battleship.Inst]
   let data_p2 = read rawdata_p2 :: [Battleship.Inst]
+  let base_sea = Sea.setupCreate bounds
+  
   print data_p1
   print data_p2
 

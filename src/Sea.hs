@@ -4,6 +4,7 @@ import qualified Battleship
 
 import Data.List (foldl')
 import Data.Bifunctor (first, second)
+import Control.Monad
 
 data SeaTileState = Pristine | Bombed deriving (Show, Read, Eq)
 data ShipTileState = ShipPresent Battleship.Inst | ShipAbsent deriving (Show, Read, Eq)
@@ -32,7 +33,7 @@ uPos :: Int -> Int -> a -> [[a]] -> [[a]]
 uPos x y v = uMapIndex (uMapIndex (\_ -> v) x) y
 
 uPosMap :: Int -> Int -> (a -> a) -> [[a]] -> [[a]]
-uPosMap x y f m = uPos x y (f $ gPos x y m) m 
+uPosMap x y f m = uPos x y (f $ gPos x y m) m
 
 dims :: [[a]] -> Bounds
 dims m = (length $ head m, length m)
@@ -53,9 +54,27 @@ checkBounds inst bounds =
   where
     getEnds :: Battleship.Inst -> (Battleship.Pos, Battleship.Pos)
     getEnds inst = (head segment, last segment) where segment = Battleship.getSegments inst
-    
+
 checkPosBounds :: Battleship.Pos -> Bounds -> Bool
 checkPosBounds (x,y) (lx, ly) = x >= 0 && y >= 0 && x < lx && y < ly
+
+tryPlaceShip :: Battleship.Inst -> Setup -> Maybe Setup
+tryPlaceShip ship setup = do
+ let inside_bounds = (`checkPosBounds` dims setup)
+ let segments = Battleship.getSegments ship
+ if all inside_bounds segments then
+  foldl' (>>=) (Just setup) $ fmap (tryPlaceShipSegment ship) segments
+ else
+  Nothing
+
+
+tryPlaceShipSegment :: Battleship.Inst -> Sea.Pos -> Setup -> Maybe Setup
+tryPlaceShipSegment ship pos sea =
+  if uncurry gPos pos sea == ShipAbsent then
+    Just $ uncurry uPos pos (ShipPresent ship) sea
+  else
+    Nothing
+
 
 
 -- Sea.create
@@ -73,12 +92,12 @@ bombPosOwned pos sea
     ShipAbsent -> Just (bombedSea, Miss)
     ShipPresent
      ship -> Just (bombedSea, if allAlreadyBombed $ Battleship.getSegments ship then ShipDestroyed ship else Hit ship)
-    where 
+    where
       target = uncurry gPos pos sea
-      
+
       alreadyBombed :: SeaTile -> Bool
       alreadyBombed = (== Bombed) . fst
-      
+
       bombedSea = uncurry uPosMap pos (first $ \_ -> Bombed) sea
-      
+
       allAlreadyBombed = all alreadyBombed . fmap ((flip $ uncurry gPos) bombedSea)

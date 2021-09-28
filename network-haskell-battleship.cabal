@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 59486392a735c402fd66951bf91fd33ce968294a2a00e399c4f37b58f89a5894
+-- hash: 5d5289579ca796f6461929186f3c5a4d45b120ecbb61faf87c0a6b3197f062c3
 
 name:           network-haskell-battleship
 version:        0.1.0.0
@@ -76,6 +76,7 @@ executable server
       Code
       GameServer
       Lobbying
+      SetupServer
       Paths_network_haskell_battleship
   hs-source-dirs:
       server
