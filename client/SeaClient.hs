@@ -35,8 +35,10 @@ hideShips = (map . map) hideTile
 bombPos :: Socket -> Sea.Pos -> Sea -> IO(Maybe(Sea, BombResult))
 bombPos s pos sea =
   if fst(uncurry gPos pos sea) == Pristine then do
+    putStrLn "Esperando por resposta - não aperte em nada"
     NS.sendAll s $ string_to_utf8 $ show $ Attack pos
     msg <- string_from_utf8 <$> NS.recv s 1024
+    print msg
     NS.sendAll s $ string_to_utf8 $ show $ ClientACK
     let result = read msg :: ServerAttackNotify
     return $ Just $ liftM2 (,) (updateSea pos sea) id $ convertResponse result

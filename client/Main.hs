@@ -61,19 +61,7 @@ connection add port message = runTCPClient add port $ \s -> (do
     msg <- C.string_from_utf8 <$> NS.recv s 1024
     putStrLn $ "Received:\n" ++ msg
     )
-  msg <- C.string_from_utf8 <$> NS.recv s 1024
-  let [header, size_line, fleetdef_line] = lines msg
-  let size = (read size_line :: Sea.Bounds)
-  let fleetdef = (read fleetdef_line :: Battleship.FleetDef)
-  fleet <- Setup.ships size fleetdef
-  let strdef = show fleet
-  putStrLn strdef
-  NS.sendAll s $ C.string_to_utf8 strdef 
-  _ <- getLine
-
-  let sea = Sea.generateRealSea $ placeFleet fleet $ Sea.setupCreate size
-
-  run s sea
+  game s
 
   return ()
   )

@@ -15,6 +15,10 @@ import Data.Maybe
 
 import Control.Monad
 import Control.Monad.Trans.Maybe
+import qualified SetupClient as Setup
+import Data.Char (toLower)
+import qualified System.Console.ANSI as Console
+
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
 data Command = Quit | Fire | Move (Pos -> Pos)
@@ -66,7 +70,9 @@ showInstructions = do
   I_O.putStrLn " para posicionar o ponteiro."
   I_O.putStr "Utilize a tecla "
   Display.putStrRed "'E'"
-  I_O.putStrLn " para disparar."
+  I_O.putStr " para disparar e "
+  Display.putStrRed "'Q'"
+  I_O.putStr " para desistir."
 
 parseCommand :: Char -> Maybe Command
 parseCommand 'q' = Just Quit
@@ -91,7 +97,7 @@ player_turn socket state@(mySea, aiSea) pos bres@(bresYou, bresAI) = do
   
   I_O.putStrLn $ Display.withoutCursor  mySeaDraw
   
-  cmd <- fmap parseCommand I_O.getChar
+  cmd <- parseCommand . toLower <$> I_O.getChar
   case cmd of
     Nothing       -> player_turn socket state pos bres
     Just Quit     -> surrender socket
@@ -109,19 +115,51 @@ player_turn socket state@(mySea, aiSea) pos bres@(bresYou, bresAI) = do
 blankEnemySea :: Sea.Sea -> Sea.Sea
 blankEnemySea = (map . map) (const (Sea.Pristine, Sea.ShipAbsent))
 
+game s = do
+  msg <- string_from_utf8 <$> NS.recv s 1024
+  if msg == show RematchRejected then
+    putStrLn "Seu oponente não quer jogar outra partida"
+  else do
+    putStrLn msg
+    let [header, size_line, fleetdef_line] = lines msg
+    let size = (read size_line :: Sea.Bounds)
+    let fleetdef = (read fleetdef_line :: Battleship.FleetDef)
+    fleet <- Setup.ships size fleetdef
+    let strdef = show fleet
+    --putStrLn strdef
+    NS.sendAll s $ string_to_utf8 strdef 
+    --_ <- getLine
+
+    let sea = Sea.generateRealSea $ Sea.placeFleet fleet $ Sea.setupCreate size
+    (result, (mySea, enemySea)) <- run s sea
+    Console.clearScreen
+    I_O.putStrLn $ reportResult result
+    I_O.putStrLn $ Display.withoutCursor $ Sea.drawFull mySea
+    I_O.putStrLn ""
+    I_O.putStrLn ""
+    I_O.putStrLn ""
+    I_O.putStrLn $ Display.withoutCursor $ Sea.drawFull enemySea
+    I_O.putStrLn "Pressione 'Y' para começar outra partida contra o mesmo oponente - qualquer outro botão para sair"
+    c <- toLower <$> I_O.getChar
+    if c == 'y' then do
+      NS.sendAll s $ string_to_utf8 $ show Rematch
+      putStrLn "Esperando por resposta - não aperte em nada"
+      game s
+    else
+      NS.sendAll s $ string_to_utf8 $ show Bye
+  
+
 run :: Socket -> Sea.Sea -> IO((Result, MyState))
 run socket mySea = loop socket (0,0) (mySea, blankEnemySea mySea) (Sea.Miss, Sea.Miss)
 
 loop :: Socket -> Pos -> MyState -> (Sea.BombResult, Sea.BombResult) -> IO((Result, MyState))
 loop socket pos state (bresYou, bresAI) = do
   resultMe <- player_turn socket state pos (bresYou, bresAI)
-  case resultMe of
-    Nothing -> return (Yield, state)
-    Just (newState0, pos, nbresYou) -> do
-      (state, nbresMe, ending) <- ai_turn socket newState0
-      case ending of
-        (Just result) -> return (result, state)
-        Nothing -> loop socket pos state (nbresYou, fromJust nbresMe)
+  let (newState0, pos, nbresYou) = fromMaybe (state, pos, bresYou) resultMe
+  (state, nbresMe, ending) <- ai_turn socket newState0
+  case ending of
+    (Just result) -> return (result, state)
+    Nothing -> loop socket pos state (nbresYou, fromJust nbresMe)
 
 surrender socket = do
   NS.sendAll socket $ string_to_utf8 $ show $ Surrender
@@ -129,6 +167,7 @@ surrender socket = do
 
 ai_turn :: Socket -> MyState -> IO (MyState, Maybe Sea.BombResult, Maybe Result)
 ai_turn server state@(mySea, aiSea) = do
+  putStrLn "Esperando por resposta - não aperte em nada"
   response <- string_from_utf8 <$> NS.recv server 1024
   let status = read response :: ServerEnemyAttackNotify
   case status of

@@ -15,7 +15,6 @@ import qualified Battleship
 import qualified Sea
 import qualified Setup
 import qualified Control.Monad
-import Game
 import Control.Monad
 
 type Player   = (Sea.Sea, Battleship.Fleet)
@@ -55,6 +54,19 @@ game s1 s2 = do
   let sea_p1 = Sea.generateRealSea $ fromMaybe (error "Invalid fleet from player 1") $ Sea.tryPlaceFleet data_p1 base_sea
   let sea_p2 = Sea.generateRealSea $ fromMaybe (error "Invalid fleet from player 2") $ Sea.tryPlaceFleet data_p2 base_sea
   loop s1 s2 sea_p1 sea_p2
+  putStrLn "Game over, rematch?"
+  r1 <- read . string_from_utf8 <$> NS.recv s1 1024 :: IO PostGameActions
+  putStrLn $ show r1 ++ " from p1"
+  r2 <- read . string_from_utf8 <$> NS.recv s2 1024 :: IO PostGameActions
+  putStrLn $ show r2 ++ " from p2"
+  let rejected = string_to_utf8 $ show RematchRejected
+  case (r1, r2) of
+    (Rematch, Rematch) -> game s1 s2
+    (Rematch, Bye) -> NS.sendAll s1 rejected
+    (Bye, Rematch) -> NS.sendAll s2 rejected
+    (Bye, Bye) -> return ()
+    
+
 
 loop :: Socket -> Socket -> Sea.Sea -> Sea.Sea -> IO ()
 loop s1 s2 sea1 sea2 = do
@@ -100,8 +112,10 @@ firstSurrendered s1 s2 sea1 sea2 p2 = do
   let status_attack2 = string_to_utf8 $ show $ convert_report status2
   --NS.sendAll s1 status_attack1
   NS.sendAll s2 status_attack2
-  let result1 = string_to_utf8 $ show $ JustEnd Defeat
-  let result2 = string_to_utf8 $ show $ JustEnd Victory
+  ok_p2 <- read . string_from_utf8 <$> NS.recv s2 1024 :: IO ClientACK
+  
+  let result1 = string_to_utf8 $ show $ JustEnd Yield
+  let result2 = string_to_utf8 $ show $ JustEnd EnemyYield
   NS.sendAll s1 result1
   NS.sendAll s2 result2
 
@@ -119,15 +133,15 @@ bothSurrendered s1 s2 = do
 
 bothLost :: Socket -> Socket -> Sea.Pos -> Sea.Pos -> IO ()
 bothLost s1 s2 p1 p2 = do
-  let result1 = string_to_utf8 $ show $ BothAtackAndEnd p2 TieYield
-  let result2 = string_to_utf8 $ show $ BothAtackAndEnd p1 TieYield
+  let result1 = string_to_utf8 $ show $ BothAtackAndEnd p2 Tie
+  let result2 = string_to_utf8 $ show $ BothAtackAndEnd p1 Tie
   NS.sendAll s1 result1
   NS.sendAll s2 result2
 
 firstLost :: Socket -> Socket -> Sea.Pos -> IO ()
 firstLost s1 s2 p2 = do
-  let result1 = string_to_utf8 $ show $ BothAtackAndEnd p2 Yield
-  let result2 = string_to_utf8 $ show $ JustEnd EnemyYield
+  let result1 = string_to_utf8 $ show $ JustEnd Victory
+  let result2 = string_to_utf8 $ show $ BothAtackAndEnd p2 Defeat
   NS.sendAll s1 result1
   NS.sendAll s2 result2
 
