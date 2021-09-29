@@ -44,7 +44,7 @@ print_usage = do
   putStrLn "<program> <ip> <port> <lobby code>; will join lobby assigned to code"
   putStrLn "<program> <ip> <port>; will create lobby"
   putStrLn "<program> <ip>; port = 3000"
-  putStrLn "<program>; "
+  putStrLn "<program>; ip = 127.0.0.1"
   
 main :: IO ()
 main = do
